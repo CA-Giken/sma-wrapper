@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+import sys
+import rospy
+import ensenso_camera.ros2 as ros2py
+from std_msgs.msg import Bool
+
+RequestData = ros2py.import_action("ensenso_camera_msgs", "RequestData")
+
+Param={
+  "streaming":False
+}
+
+def parse_argv(argv):
+  args={}
+  for arg in argv:
+    tokens = arg.split(":=")
+    if len(tokens) == 2:
+      key = tokens[0]
+      args[key] = tokens[1]
+  return args
+
+########################################################
+
+def do_update():
+  stat=Bool()
+  stat.data=True
+  response = ros2py.send_action_goal(node, request_data_client, goal)
+  if not response.successful():
+    print("ens error")
+    stat.data=False
+  else:
+    print("request ok")
+    result = response.get_result()
+    if result.error.code != 0:
+      print("ens error",result.error)
+      stat.data=False
+    else:
+      print("response ok")
+  if not Param["streaming"]:
+    pub_capture.publish(stat)
+
+def cb_capture(msg):
+  if not Param["streaming"]: do_update()
+  else: pub_capture.publish(Bool())
+
+def cb_loop(msg):
+  try:
+    Param.update(rospy.get_param("~param"))
+  except Exception as e:
+    print("get_param exception:",e.args)
+
+  if Param["streaming"]: do_update()
+
+  rospy.Timer(rospy.Duration(1),cb_loop,oneshot=True)
+
+
+if __name__ == "__main__":
+  node = ros2py.create_node("ensenso_trigger", args=sys.argv)
+
+  rospy.Subscriber("~capture",Bool,cb_capture)
+  pub_capture=rospy.Publisher("~captured",Bool,queue_size=1)
+
+  goal = RequestData.Goal()
+  goal.parameter_set = ""
+  goal.request_raw_images = True
+  goal.request_rectified_images = True
+  goal.request_disparity_map = False
+  goal.request_depth_image = True
+  goal.request_point_cloud = True
+  goal.request_normals = False
+
+  # By default the data is published and not included in the action response.
+  goal.publish_results = True
+  goal.include_results_in_response = False
+
+  request_data_client_name = "request_data"
+  request_data_client = ros2py.create_action_client(node, request_data_client_name, RequestData)
+
+  ros2py.wait_for_server(node, request_data_client, timeout_sec=60)
+
+  rospy.Timer(rospy.Duration(0.5),cb_loop,oneshot=True)
+
+  try:
+    rospy.spin()
+  except KeyboardInterrupt:
+    print("Shutting down")
+
+

@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>sma-wrapper</name>
+  <version>2.0.0</version>
+  <description>Smabo wrapper collection for various devices</description>
+
+  <license>BSD</license>
+
+  <author>CA-Giken</author>
+  <maintainer email="kazuki.hiraizumi@ca-giken.com">KazukiHiraizumi</maintainer>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>actionlib</depend>
+  <depend>ensenso_camera</depend>
+  <depend>ensenso_camera_msgs</depend>
+  <depend>ensenso_description</depend>
+  <depend>rospy</depend>
+</package>

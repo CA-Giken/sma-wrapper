@@ -1,1 +1,4 @@
-# sma-wrapper
+# Smabo Wrapper for various devices
+
+- ensenso
+
