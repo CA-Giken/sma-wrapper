@@ -2,7 +2,12 @@
 import sys
 import rospy
 import ensenso_camera.ros2 as ros2py
+
+import numpy as np
+import open3d as o3d
 from std_msgs.msg import Bool
+from sensor_msgs.msg import PointCloud2
+from smabo import open3d_conversions
 
 RequestData = ros2py.import_action("ensenso_camera_msgs", "RequestData")
 
@@ -53,12 +58,21 @@ def cb_loop(msg):
 
   rospy.Timer(rospy.Duration(1),cb_loop,oneshot=True)
 
+def cb_pc2(msg):
+  global srcArray,Tcapt,Pcat,Reqcount
+  pc=open3d_conversions.from_msg(msg)
+  pc.scale(scale=1000.0,center=np.zeros(3))
+  print("request data",len(pc.points),pc.get_center())
+  pc2=open3d_conversions.to_msg(pc,frame_id=msg.header.frame_id)
+  pub_pc2.publish(pc2) 
 
 if __name__ == "__main__":
   node = ros2py.create_node("ensenso_trigger", args=sys.argv)
 
   rospy.Subscriber("~capture",Bool,cb_capture)
+  rospy.Subscriber("~pc2in",PointCloud2,cb_pc2)
   pub_capture=rospy.Publisher("~captured",Bool,queue_size=1)
+  pub_pc2=rospy.Publisher("~pc2out",PointCloud2,queue_size=1)
 
   goal = RequestData.Goal()
   goal.parameter_set = ""

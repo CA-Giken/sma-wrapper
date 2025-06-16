@@ -5,12 +5,14 @@
     <param name="camera_frame" type="str" value="camera" />
     <param name="settings" type="str" value="/root/catkin_ws/src/sma-wrapper/ensenso/setting/$(arg serial).ensparam" />
     <remap from="raw/left/image" to="/sensors/image" />
-    <remap from="point_cloud" to="/sensors/pc2" />
+    <remap from="point_cloud" to="/sensors/ensenso/pc2" />
   </node>
   <node ns="/sensors" pkg="sma-wrapper" type="request_data" name="" output="screen">
     <remap from="~param" to="/sensors" />
     <remap from="~capture" to="/sensors/X1" />
     <remap from="~captured" to="/sensors/Y1" />
+    <remap from="~pc2in" to="/sensors/ensenso/pc2" />
+    <remap from="~pc2out" to="/sensors/pc2" />
   </node>
 
   <param name="/sensors/streaming" type="bool" value="true" />
