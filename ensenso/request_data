@@ -27,22 +27,23 @@ def parse_argv(argv):
 ########################################################
 
 def do_update():
-  stat=Bool()
-  stat.data=True
+  global stat
+  f=True
   response = ros2py.send_action_goal(node, request_data_client, goal)
   if not response.successful():
     print("ens error")
-    stat.data=False
+    f=False
   else:
     print("request ok")
     result = response.get_result()
     if result.error.code != 0:
       print("ens error",result.error)
-      stat.data=False
+      f=False
     else:
       print("response ok")
   if not Param["streaming"]:
     pub_capture.publish(stat)
+  stat.data=f
 
 def cb_capture(msg):
   if not Param["streaming"]: do_update()
@@ -56,6 +57,7 @@ def cb_loop(msg):
 
   if Param["streaming"]: do_update()
 
+  pub_stat.publish(stat)
   rospy.Timer(rospy.Duration(1),cb_loop,oneshot=True)
 
 def cb_pc2(msg):
@@ -73,6 +75,9 @@ if __name__ == "__main__":
   rospy.Subscriber("~pc2in",PointCloud2,cb_pc2)
   pub_capture=rospy.Publisher("~captured",Bool,queue_size=1)
   pub_pc2=rospy.Publisher("~pc2out",PointCloud2,queue_size=1)
+  pub_stat=rospy.Publisher("~stat",Bool,queue_size=1)
+
+  stat=Bool()
 
   goal = RequestData.Goal()
   goal.parameter_set = ""
@@ -90,8 +95,8 @@ if __name__ == "__main__":
   request_data_client_name = "request_data"
   request_data_client = ros2py.create_action_client(node, request_data_client_name, RequestData)
 
-  ros2py.wait_for_server(node, request_data_client, timeout_sec=60)
-
+  ros2py.wait_for_server(node, request_data_client, timeout_sec=10)
+  stat.data=True
   rospy.Timer(rospy.Duration(0.5),cb_loop,oneshot=True)
 
   try:
