@@ -1,12 +1,15 @@
 <launch>
-  <node ns="/sensors" pkg="ensenso_camera" type="ensenso_camera_node" name="ensenso_camera_node" output="screen">
-<!--    <param name="serial" type="str" value="$(arg serial)" />
-    <param name="settings" type="str" value="$(find sma-wrapper)/ensenso/setting/$(arg serial).ensparam" />  -->
-    <param name="camera_frame" type="str" value="camera" />
+  <arg name="serial" default="218511" />
+  <arg name="settings" default="$(find sma-wrapper)/ensenso/settings/218511.ensparam" />
+  <arg name="camera_frame" default="camera" />
+  <node ns="/sensors" pkg="ensenso_camera" type="ensenso_camera_node" name="ensenso_camera_node">
+    <param name="serial" type="str" value="$(arg serial)" />
+    <param name="settings" type="str" value="$(arg settings)" />
+    <param name="camera_frame" type="str" value="$(arg camera_frame)" />
     <remap from="raw/left/image" to="/sensors/image" />
     <remap from="point_cloud" to="/sensors/ensenso/pc2" />
   </node>
-  <node ns="/sensors" pkg="sma-wrapper" type="request_data" name="" output="screen">
+  <node ns="/sensors" pkg="sma-wrapper" type="request_data" name="">
     <remap from="~param" to="/sensors" />
     <remap from="~stat" to="/sensors/stat" />
     <remap from="~capture" to="/sensors/X1" />
