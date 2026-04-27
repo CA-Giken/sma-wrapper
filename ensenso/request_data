@@ -6,14 +6,22 @@ import ensenso_camera.ros2 as ros2py
 
 import numpy as np
 import open3d as o3d
+import datetime
 from std_msgs.msg import Bool
+from std_msgs.msg import String
 from sensor_msgs.msg import PointCloud2
 from smabo import open3d_conversions
 
+from ensenso_camera_msgs.msg import Parameter
+
+shutdown=False
+
 RequestData = ros2py.import_action("ensenso_camera_msgs", "RequestData")
+GetParameter = ros2py.import_action("ensenso_camera_msgs", "GetParameter")
 
 Param={
-  "streaming":False
+  "streaming":False,
+  "debug":False
 }
 Config={
   "folder":"/root/src",
@@ -32,25 +40,40 @@ def parse_argv(argv):
 ########################################################
 
 def do_update():
-  global stat
+  global stat,shutdown
   if Param["debug"]: return
 
-  f=True
-  response = ros2py.send_action_goal(node, request_data_client, goal)
+  res=True
+  try:
+    response = ros2py.send_action_goal(node, request_data_client, goal)
+  except Exception as e:
+    print("request data fatal error",e)
+    stat.data=False
+    return
+
   if not response.successful():
     print("ens error")
-    f=False
+    res=False
   else:
     print("request ok")
     result = response.get_result()
     if result.error.code != 0:
       print("ens error",result.error)
-      f=False
+      res=False
     else:
       print("response ok")
-  stat.data=f
+  stat.data=res
   if not Param["streaming"]:
     pub_capture.publish(stat)
+
+def do_getparam():
+  global stat
+  get_parameter_goal = GetParameter.Goal(keys=[Parameter.EXPOSURE])
+  try:
+    response = ros2py.send_action_goal(node, get_parameter_client, get_parameter_goal)
+    stat.data=response.successful()
+  except Exception as e:
+    print("request data fatal error",e)
 
 def cb_capture(msg):
   if not Param["streaming"]: do_update()
@@ -63,8 +86,10 @@ def cb_loop(msg):
     print("get_param exception:",e.args)
 
   if Param["streaming"]: do_update()
+  else: do_getparam()
 
   pub_stat.publish(stat)
+
   rospy.Timer(rospy.Duration(1),cb_loop,oneshot=True)
 
 def isint(s):
@@ -85,16 +110,21 @@ def cb_pc2(msg):
   if Param["streaming"]: return
   datapath=Config["folder"]
   ls=os.listdir(datapath)
-  sel=list(filter(lambda f:f.startswith(Config["prefix"]),ls))
-  sel=list(filter(lambda f:f.endswith(Config["ext"]),sel))
-  sel.sort()
-  num=[]
-  for s in sel:
-    try:
-      num.append(int(s[len(Config["prefix"]):-len(Config["ext"])]))
-    except ValueError:
-      pass
-  newfile=datapath+'/'+Config["prefix"]+str(num[-1]+1)+Config["ext"]
+#  sel=list(filter(lambda f:f.startswith(Config["prefix"]),ls))
+#  sel=list(filter(lambda f:f.endswith(Config["ext"]),sel))
+#  sel.sort()
+#  num=[0]
+#  for s in sel:
+#    try:
+#      num.append(int(s[len(Config["prefix"]):-len(Config["ext"])]))
+#    except ValueError:
+#      pass
+#  newfile=datapath+'/'+Config["prefix"]+str(num[-1]+1)+Config["ext"]
+  tnow=datetime.datetime.now().strftime("%y%m%d-%H%M%S")
+  newfile=datapath+'/'+tnow+Config["ext"]
+  msg=String()
+  msg.data=str({'tcap':tnow})
+  pub_report.publish(msg)
   print("ensenso::write ply",newfile)
   o3d.io.write_point_cloud(newfile,pc)
 
@@ -110,6 +140,7 @@ if __name__ == "__main__":
   pub_capture=rospy.Publisher("~captured",Bool,queue_size=1)
   pub_pc2=rospy.Publisher("~pc2out",PointCloud2,queue_size=1)
   pub_stat=rospy.Publisher("~stat",Bool,queue_size=1)
+  pub_report=rospy.Publisher("/report",String,queue_size=1)
 
   stat=Bool()
 
@@ -129,8 +160,10 @@ if __name__ == "__main__":
   if not Param["debug"]:
     request_data_client_name = "request_data"
     request_data_client = ros2py.create_action_client(node, request_data_client_name, RequestData)
+    get_parameter_client = ros2py.create_action_client(node, "get_parameter", GetParameter)
 
     ros2py.wait_for_server(node, request_data_client, timeout_sec=10)
+    ros2py.wait_for_server(node, get_parameter_client, timeout_sec=10)
     stat.data=True
     rospy.Timer(rospy.Duration(0.5),cb_loop,oneshot=True)
 
@@ -139,4 +172,7 @@ if __name__ == "__main__":
   except KeyboardInterrupt:
     print("Shutting down")
 
+  while not rospy.is_shutdown():
+    if shutdown: break
+    time.sleep(0.1)
 
